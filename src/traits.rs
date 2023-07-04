@@ -23,6 +23,8 @@ use nom::combinator::map_res;
 #[cfg(feature = "alloc")]
 use nom::error::FromExternalError;
 
+#[cfg(not(feature = "alloc"))]
+use nom::multi::fill;
 #[cfg(feature = "alloc")]
 use nom::multi::{many0, many_m_n};
 
@@ -254,6 +256,32 @@ where
         map_res(many_m_n(N, N, complete(<T>::parse_le)), |v| {
             Self::try_from(v)
         })(i)
+    }
+}
+
+/// *Note: this implementation uses const generics and requires rust >= 1.51*
+#[rustversion::since(1.51)]
+#[cfg(not(feature = "alloc"))]
+impl<T, I, E, const N: usize> Parse<I, E> for [T; N]
+where
+    I: Clone + PartialEq + InputSlice,
+    E: ParseError<I>,
+    T: Parse<I, E> + Default + Copy,
+{
+    fn parse(i: I) -> IResult<I, Self, E> {
+        let mut o: Self = [Default::default(); N];
+        let r = fill(<T>::parse, &mut o)(i);
+        r.map(|(i, _)| (i, o))
+    }
+    fn parse_be(i: I) -> IResult<I, Self, E> {
+        let mut o: Self = [Default::default(); N];
+        let r = fill(<T>::parse_be, &mut o)(i);
+        r.map(|(i, _)| (i, o))
+    }
+    fn parse_le(i: I) -> IResult<I, Self, E> {
+        let mut o: Self = [Default::default(); N];
+        let r = fill(<T>::parse_le, &mut o)(i);
+        r.map(|(i, _)| (i, o))
     }
 }
 
